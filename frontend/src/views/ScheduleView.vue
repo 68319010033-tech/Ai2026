@@ -1,6 +1,6 @@
 <script setup>
 import { useScheduleStore } from '../stores/schedule'
-import ScheduleGrid from '../components/ScheduleGrid.vue'
+import ScheduleTable from '../components/ScheduleGrid.vue'
 
 const store = useScheduleStore()
 const tabs = [
@@ -51,7 +51,7 @@ const tabs = [
             <template v-if="store.summary.max"> · วัน{{ store.summary.busiest }}เรียนมากสุด {{ store.summary.max }} คาบ</template>
           </p>
         </div>
-        <ScheduleGrid :sessions="store.selectedSessions" :mode="store.view" />
+        <ScheduleTable :sessions="store.selectedSessions" :mode="store.view" />
         <p v-if="!store.selectedSessions.length" class="mt-3 text-sm text-ink-soft">รายการนี้ยังไม่มีคาบเรียนในตัวอย่างข้อมูล</p>
       </section>
     </div>
