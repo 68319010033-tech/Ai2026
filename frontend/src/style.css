@@ -29,3 +29,12 @@ body { margin: 0; background: var(--color-mist); color: var(--color-ink); font-f
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+
+/* กันเบราว์เซอร์ทาสีฟ้าทับช่องกรอกตอน autofill */
+input:-webkit-autofill,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  -webkit-text-fill-color: var(--color-ink);
+  caret-color: var(--color-ink);
+}

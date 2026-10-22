@@ -1,10 +1,20 @@
 <script setup>
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useScheduleStore, USE_MOCK } from './stores/schedule'
+import { useAuthStore } from './stores/auth'
+import ConfirmModal from './components/ConfirmModal.vue'
 
 const store = useScheduleStore()
 const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
+const showLogout = ref(false)
+
+function logout() {
+  auth.logout()
+  router.push('/login')
+}
 
 const steps = computed(() => [
   { to: '/', name: 'import', label: 'นำเข้าข้อมูล', done: store.imported },
@@ -15,8 +25,9 @@ const steps = computed(() => [
 </script>
 
 <template>
-  <div class="min-h-full lg:flex">
-    <aside class="border-b border-line bg-paper lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r">
+  <div v-if="!route.meta.public" class="min-h-full lg:flex">
+    <aside
+      class="border-b border-line bg-paper lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-64 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
       <div class="flex items-center gap-3 px-5 py-4 lg:py-6">
         <svg viewBox="0 0 32 32" class="h-9 w-9 shrink-0" aria-hidden="true">
           <rect width="32" height="32" rx="8" fill="#1d7d47" />
@@ -39,17 +50,38 @@ const steps = computed(() => [
           :class="route.name === s.name ? 'bg-leaf-100 font-semibold text-leaf-900' : 'text-ink-soft'">
           <span class="grid h-6 w-6 place-items-center rounded-full text-xs font-semibold"
             :class="s.done ? 'bg-leaf-600 text-white' : route.name === s.name ? 'bg-leaf-700 text-white' : 'border border-line text-ink-soft'">
-            <svg v-if="s.done" viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.2"
-              stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7" /></svg>
+            <svg v-if="s.done" viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" stroke="currentColor"
+              stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 8.5l3 3 6-7" />
+            </svg>
             <template v-else>{{ i + 1 }}</template>
           </span>
           {{ s.label }}
         </RouterLink>
       </nav>
 
-      <p v-if="USE_MOCK" class="mx-5 mb-4 mt-6 hidden rounded-xl bg-warn-bg px-3 py-2 text-xs leading-relaxed text-warn lg:block">
+      <p v-if="USE_MOCK"
+        class="mx-5 mb-4 mt-6 hidden rounded-xl bg-warn-bg px-3 py-2 text-xs leading-relaxed text-warn lg:block">
         ตอนนี้ใช้ข้อมูลตัวอย่าง ผลลัพธ์ยังไม่ได้มาจาก backend
       </p>
+      <div class="mx-4 mb-4 mt-4 border-t border-line pt-4 lg:mt-auto">
+        <div class="flex items-center gap-3">
+          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-leaf-100 font-semibold text-leaf-800"
+            aria-hidden="true">
+            {{ (auth.user?.name || auth.user?.username || '?').charAt(0).toUpperCase() }}
+          </span>
+          <p class="min-w-0 flex-1 truncate text-sm font-semibold">{{ auth.user?.name || auth.user?.username }}</p>
+        </div>
+
+        <button type="button" @click="showLogout = true"
+          class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink-soft transition-colors hover:border-leaf-300 hover:bg-leaf-50 hover:text-leaf-800">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.9"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 4H6a1 1 0 00-1 1v14a1 1 0 001 1h3M16 8l4 4-4 4M20 12H10" />
+          </svg>
+          ออกจากระบบ
+        </button>
+      </div>
     </aside>
 
     <main class="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:py-10">
@@ -57,5 +89,8 @@ const steps = computed(() => [
         <RouterView />
       </div>
     </main>
+    <ConfirmModal v-model="showLogout" title="ออกจากระบบ?" message="ต้องเข้าสู่ระบบใหม่ถึงจะใช้งานต่อได้"
+      confirm-text="ออกจากระบบ" @confirm="logout" />
   </div>
+  <RouterView v-else />
 </template>
