@@ -1,0 +1,39 @@
+﻿resource_type,resource_id,day,period,reason
+TEACHER,T01,MON,1,Outside duty
+TEACHER,T01,MON,2,Outside duty
+TEACHER,T02,FRI,7,Academic meeting
+TEACHER,T02,FRI,8,Academic meeting
+TEACHER,T03,WED,3,Personal unavailability
+TEACHER,T03,WED,4,Personal unavailability
+TEACHER,T04,MON,7,Academic meeting
+TEACHER,T04,MON,8,Academic meeting
+TEACHER,T05,TUE,5,Outside duty
+TEACHER,T05,TUE,6,Outside duty
+TEACHER,T06,THU,1,Outside duty
+TEACHER,T06,THU,2,Outside duty
+TEACHER,T07,FRI,1,Inspection
+TEACHER,T07,FRI,2,Inspection
+TEACHER,T08,MON,3,Committee
+TEACHER,T08,MON,4,Committee
+TEACHER,T09,WED,7,Committee
+TEACHER,T09,WED,8,Committee
+TEACHER,T10,TUE,1,Training
+TEACHER,T10,TUE,2,Training
+TEACHER,T11,FRI,5,Office duty
+TEACHER,T11,FRI,6,Office duty
+TEACHER,T12,THU,7,Committee
+TEACHER,T12,THU,8,Committee
+TEACHER,T13,MON,5,Project guidance
+TEACHER,T13,MON,6,Project guidance
+TEACHER,T14,WED,1,Outside duty
+TEACHER,T14,WED,2,Outside duty
+ROOM,R05,FRI,7,Maintenance
+ROOM,R05,FRI,8,Maintenance
+ROOM,R06,WED,1,Maintenance
+ROOM,R06,WED,2,Maintenance
+ROOM,R07,TUE,7,Equipment check
+ROOM,R07,TUE,8,Equipment check
+ROOM,R08,MON,1,Maintenance
+ROOM,R08,MON,2,Maintenance
+ROOM,R03,THU,3,Reserved
+ROOM,R04,FRI,4,Reserved

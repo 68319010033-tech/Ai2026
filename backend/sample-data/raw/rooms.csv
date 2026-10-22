@@ -1,0 +1,9 @@
+﻿room_id,room_name,room_type,capacity
+R01,Classroom-1,GENERAL,35
+R02,Classroom-2,GENERAL,35
+R03,Classroom-3,GENERAL,40
+R04,Classroom-4,GENERAL,38
+R05,Computer-Lab-1,COMPUTER,35
+R06,Computer-Lab-2,COMPUTER,36
+R07,Network-Lab,NETWORK,36
+R08,Media-Studio,MEDIA,35

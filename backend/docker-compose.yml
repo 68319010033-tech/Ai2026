@@ -1,0 +1,12 @@
+version: '3.9'
+services:
+  backend:
+    build: .
+    container_name: schedule-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
