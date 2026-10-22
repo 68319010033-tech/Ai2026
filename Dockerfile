@@ -10,11 +10,14 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --no-cache-dir --break-system-packages ortools
+
 WORKDIR /app
-COPY backend/package*.json ./
+# คัดลอกไฟล์จาก Root ของโปรเจกต์โดยตรง
+COPY package*.json ./
 RUN npm ci --omit=dev
-COPY backend/ ./
+COPY . ./
 COPY --from=web /web/dist ./public
+
 ENV NODE_ENV=production PYTHON_PATH=python3
 EXPOSE 3000
 CMD ["node", "src/index.js"]
