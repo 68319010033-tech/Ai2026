@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+serviceAccountKey.json
+*serviceAccount*.json
+
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Logs
+*.log
+logs/
