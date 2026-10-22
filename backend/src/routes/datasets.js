@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { CONFIG } from '../config.js';
 import { TABLES, TABLE_NAMES } from '../data/schema.js';
 import { rawTablesFromFiles, rawTablesFromJson, rawTablesFromDir, parseCsv } from '../data/loader.js';
+import { persist } from '../services/persistence.js';
 import { createDataset, getDataset, deleteDataset, listDatasets, publicDataset } from '../services/datasetStore.js';
 import { startJob, publicJob } from '../services/jobs.js';
 import { validate } from '../engine/validator.js';
@@ -16,7 +17,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: CON
 const SAMPLE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../sample-data/raw');
 const r = Router();
 
-r.get('/', (req, res) => res.json({ datasets: listDatasets() }));
+r.get('/', wrap(async (req, res) => res.json({ datasets: await listDatasets() })));
 
 // Upload: multipart (CSV files and/or a ZIP of CSVs)  OR  JSON body { groups:[], teachers:[], ... }
 r.post('/', upload.any(), wrap(async (req, res) => {
@@ -25,28 +26,39 @@ r.post('/', upload.any(), wrap(async (req, res) => {
   else if (req.is('application/json')) raw = rawTablesFromJson(req.body);
   else throw new AppError(400, 'Send multipart files (CSV or ZIP) or a JSON body containing the tables.');
   if (!Object.keys(raw).length) throw new AppError(400, `No recognised tables found. Expected file names: ${TABLE_NAMES.map((t) => t + '.csv').join(', ')}.`);
-  const rec = createDataset(raw, { name: req.body?.name || req.files?.[0]?.originalname || 'Uploaded dataset', source: 'upload' });
+  const rec = await createDataset(raw, { name: req.body?.name || req.files?.[0]?.originalname || 'Uploaded dataset', source: 'upload' });
   res.status(rec.report.ok ? 201 : 422).json({ ...publicDataset(rec), ignoredFiles: ignored, report: rec.report, preflight: rec.preflight });
 }));
 
 // Bundled sample (deliberately dirty raw data -> shows the cleaning report)
 r.post('/sample', wrap(async (req, res) => {
-  const rec = createDataset(rawTablesFromDir(SAMPLE_DIR), { name: 'Sample - Smart Campus MOCK-60-01', source: 'sample' });
+  const rec = await createDataset(rawTablesFromDir(SAMPLE_DIR), { name: 'Sample - Smart Campus MOCK-60-01', source: 'sample' });
   res.status(201).json({ ...publicDataset(rec), report: rec.report, preflight: rec.preflight });
 }));
 
-r.get('/:id', wrap(async (req, res) => { const rec = getDataset(req.params.id); res.json({ ...publicDataset(rec), preflight: rec.preflight }); }));
-r.get('/:id/report', wrap(async (req, res) => res.json(getDataset(req.params.id).report)));
+
+// Import the input tables from Firestore collections "<prefix>groups", "<prefix>teachers", ... (body: { prefix?, name? })
+r.post('/import-firestore', wrap(async (req, res) => {
+  const prefix = String(req.body?.prefix ?? '');
+  if (!/^[A-Za-z0-9_-]{0,40}$/.test(prefix)) throw new AppError(400, 'prefix may only contain letters, digits, "_" and "-" (max 40).');
+  const raw = await persist.readRawTables(prefix);
+  if (!Object.keys(raw).length) throw new AppError(404, `No Firestore collections found named ${TABLE_NAMES.map((t) => prefix + t).join(', ')}.`);
+  const rec = await createDataset(raw, { name: req.body?.name || `Firestore import (${prefix || 'no prefix'})`, source: 'firestore' });
+  res.status(rec.report.ok ? 201 : 422).json({ ...publicDataset(rec), report: rec.report, preflight: rec.preflight });
+}));
+
+r.get('/:id', wrap(async (req, res) => { const rec = await getDataset(req.params.id); res.json({ ...publicDataset(rec), preflight: rec.preflight }); }));
+r.get('/:id/report', wrap(async (req, res) => res.json((await getDataset(req.params.id)).report)));
 r.get('/:id/preflight', wrap(async (req, res) => {
-  const rec = getDataset(req.params.id);
+  const rec = await getDataset(req.params.id);
   if (!rec.preflight) throw new AppError(422, 'Dataset has blocking errors; pre-flight is unavailable.', { errors: rec.report.errors });
   res.json(rec.preflight);
 }));
-r.delete('/:id', wrap(async (req, res) => { getDataset(req.params.id); deleteDataset(req.params.id); res.status(204).end(); }));
+r.delete('/:id', wrap(async (req, res) => { await getDataset(req.params.id); await deleteDataset(req.params.id); res.status(204).end(); }));
 
 // Preview a cleaned table
 r.get('/:id/preview/:table', wrap(async (req, res) => {
-  const rec = getDataset(req.params.id);
+  const rec = await getDataset(req.params.id);
   if (!TABLES[req.params.table]) throw new AppError(404, `Unknown table. Use one of: ${TABLE_NAMES.join(', ')}.`);
   const rows = rec.dataset[req.params.table];
   const limit = Math.min(Number(req.query.limit) || 50, 500), offset = Number(req.query.offset) || 0;
@@ -55,7 +67,7 @@ r.get('/:id/preview/:table', wrap(async (req, res) => {
 
 // Download cleaned data as a ZIP of CSVs
 r.get('/:id/cleaned.zip', wrap(async (req, res) => {
-  const rec = getDataset(req.params.id);
+  const rec = await getDataset(req.params.id);
   const zip = new AdmZip();
   for (const t of TABLE_NAMES) zip.addFile(`${t}.csv`, Buffer.from(toCsv(rec.dataset[t], Object.keys(TABLES[t].columns))));
   res.type('application/zip').attachment(`cleaned_data_${rec.id}.zip`).send(zip.toBuffer());
@@ -63,7 +75,7 @@ r.get('/:id/cleaned.zip', wrap(async (req, res) => {
 
 // Start solving (async job)
 r.post('/:id/solve', wrap(async (req, res) => {
-  const rec = getDataset(req.params.id);
+  const rec = await getDataset(req.params.id);
   const b = req.body || {};
   const num = (v, name, min, max) => { if (v === undefined) return undefined; const n = Number(v); if (!Number.isFinite(n) || n < min || n > max) throw new AppError(400, `${name} must be a number between ${min} and ${max}.`); return n; };
   const options = {
@@ -78,7 +90,7 @@ r.post('/:id/solve', wrap(async (req, res) => {
 
 // Validate an externally produced solution.csv (multipart "file" or JSON { assignments: [...] })
 r.post('/:id/validate-solution', upload.single('file'), wrap(async (req, res) => {
-  const rec = getDataset(req.params.id);
+  const rec = await getDataset(req.params.id);
   if (!rec.report.ok) throw new AppError(422, 'Dataset has blocking errors.');
   let rows;
   if (req.file) rows = parseCsv(req.file.buffer.toString('utf8'));

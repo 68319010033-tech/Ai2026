@@ -6,13 +6,14 @@ import { CONFIG } from './config.js';
 import datasets from './routes/datasets.js';
 import jobs from './routes/jobs.js';
 import templates from './routes/templates.js';
+import { persist } from './services/persistence.js';
 
 export function createApp() {
   const app = express();
   app.use(cors({ origin: CONFIG.corsOrigin === '*' ? true : CONFIG.corsOrigin.split(',') }));
   app.use(express.json({ limit: '5mb' }));
 
-  app.get('/api/health', (req, res) => res.json({ status: 'ok', uptimeSec: Math.round(process.uptime()), time: new Date().toISOString() }));
+  app.get('/api/health', (req, res) => res.json({ status: 'ok', storage: persist.name, uptimeSec: Math.round(process.uptime()), time: new Date().toISOString() }));
   app.use('/api/datasets', datasets);
   app.use('/api/jobs', jobs);
   app.use('/api/templates', templates);
@@ -29,7 +30,7 @@ export function createApp() {
     if (err.name === 'MulterError') return res.status(400).json({ error: err.message });
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON body.' });
     const status = err.status || 500;
-    if (status >= 500) console.error(err);
+    if (status >= 500 && status !== 501) console.error(err);
     res.status(status).json({ error: err.message, ...(err.details ? { details: err.details } : {}) });
   });
   return app;

@@ -4,7 +4,9 @@
   "description": "Smart Campus timetable engine + REST API (Express, ESM)",
   "type": "module",
   "main": "src/server.js",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
@@ -15,6 +17,8 @@
     "cors": "^2.8.5",
     "csv-parse": "^5.6.0",
     "express": "^4.21.2",
+    "firebase": "^13.1.0",
+    "firebase-admin": "^14.5.0",
     "multer": "^1.4.5-lts.1"
   }
 }
