@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans Thai", system-ui, sans-serif;
+  --color-paper: #ffffff;
+  --color-mist: #f5f9f6;
+  --color-ink: #14271c;
+  --color-ink-soft: #52695a;
+  --color-line: #dfeae3;
+  --color-leaf-50: #effaf2;
+  --color-leaf-100: #d9f2e0;
+  --color-leaf-200: #b4e4c3;
+  --color-leaf-300: #82cf9d;
+  --color-leaf-400: #4fb577;
+  --color-leaf-500: #2a9a5a;
+  --color-leaf-600: #1d7d47;
+  --color-leaf-700: #19633a;
+  --color-leaf-800: #174e30;
+  --color-leaf-900: #123f28;
+  --color-warn: #b45309;
+  --color-warn-bg: #fef3c7;
+}
+
+html, body, #app { height: 100%; }
+body { margin: 0; background: var(--color-mist); color: var(--color-ink); font-family: var(--font-sans); }
+
+:focus-visible { outline: 2px solid var(--color-leaf-500); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+
+/* กันเบราว์เซอร์ทาสีฟ้าทับช่องกรอกตอน autofill */
+input:-webkit-autofill,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  -webkit-text-fill-color: var(--color-ink);
+  caret-color: var(--color-ink);
+}
