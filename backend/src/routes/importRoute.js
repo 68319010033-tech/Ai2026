@@ -24,37 +24,81 @@ const upload = multer({
 /**
  * POST /api/import
  * Requires: Bearer token (authenticate middleware)
- * Form-data field: "file" (CSV)
- * Response: { ok: true, errors: [{ file, row, message }] }
+ * Accepts either:
+ *  - Form-data field: "file" (CSV)
+ *  - JSON body: { records: [...], files: {...}, useSample: boolean }
+ * Response: { ok: true, imported: number, errors: [{ file, row, message }] }
  */
-router.post('/import', authenticate, upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ ok: false, errors: [{ file: null, row: null, message: 'No file uploaded. Use field name "file".' }] });
+router.post(
+  '/import',
+  authenticate,
+  (req, res, next) => {
+    if (req.is('application/json')) {
+      return next();
     }
+    upload.single('file')(req, res, next);
+  },
+  async (req, res) => {
+    try {
+      if (req.is('application/json')) {
+        const { records = [], useSample = false, files = {} } = req.body || {};
+        const importRef = db.ref('importedData');
+        await importRef.set({
+          records,
+          filesSummary: files,
+          useSample: Boolean(useSample),
+          importedAt: new Date().toISOString(),
+          importedBy: req.user.userId,
+        });
 
-    const { records, errors } = parseCSV(req.file.buffer, req.file.originalname);
+        return res.status(200).json({
+          ok: true,
+          imported: records.length,
+          errors: [],
+        });
+      }
 
-    if (records.length > 0) {
-      // Save valid records to Firebase RTDB under importedData/
-      const importRef = db.ref('importedData');
-      await importRef.set({
-        records,
-        importedAt: new Date().toISOString(),
-        importedBy: req.user.userId,
-        filename: req.file.originalname,
+      if (!req.file) {
+        return res.status(400).json({
+          ok: false,
+          errors: [{ file: null, row: null, message: 'No file uploaded. Use field name "file" or send JSON body.' }],
+        });
+      }
+
+      const { records, errors } = parseCSV(req.file.buffer, req.file.originalname);
+
+      if (records.length > 0) {
+        const importRef = db.ref('importedData');
+        await importRef.set({
+          records,
+          importedAt: new Date().toISOString(),
+          importedBy: req.user.userId,
+          filename: req.file.originalname,
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        imported: records.length,
+        errors,
       });
+    } catch (err) {
+      console.error('Import error:', err);
+      return res.status(500).json({ ok: false, errors: [{ file: null, row: null, message: err.message }] });
     }
-
-    return res.status(200).json({
-      ok: true,
-      imported: records.length,
-      errors,
-    });
-  } catch (err) {
-    console.error('Import error:', err);
-    return res.status(500).json({ ok: false, errors: [{ file: null, row: null, message: err.message }] });
   }
+);
+
+// Handle multer errors
+// eslint-disable-next-line no-unused-vars
+router.use((err, _req, res, _next) => {
+  if (err.message === 'Only CSV files are accepted.') {
+    return res.status(400).json({ ok: false, errors: [{ file: null, row: null, message: err.message }] });
+  }
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ ok: false, errors: [{ file: null, row: null, message: 'File too large. Maximum size is 10 MB.' }] });
+  }
+  return res.status(500).json({ ok: false, errors: [{ file: null, row: null, message: err.message || 'Upload failed.' }] });
 });
 
 module.exports = router;

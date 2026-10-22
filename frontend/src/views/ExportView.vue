@@ -1,4 +1,5 @@
 <script setup>
+import axios from 'axios'
 import { useScheduleStore } from '../stores/schedule'
 import { downloadText } from '../utils/download'
 import { nameOf } from '../mock/data'
@@ -10,7 +11,16 @@ const esc = (v) => {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-function solutionCsv() {
+async function solutionCsv() {
+  if (store.currentJobId) {
+    try {
+      const { data } = await axios.get(`/api/export/solution.csv?jobId=${store.currentJobId}`, { responseType: 'text' })
+      downloadText('solution.csv', data)
+      return
+    } catch (e) {
+      console.warn('Backend export failed, falling back to local:', e.message)
+    }
+  }
   const rows = [...store.sessions]
     .sort((a, b) => a.offering_id.localeCompare(b.offering_id) || a.session_no - b.session_no)
     .map((s) => [s.offering_id, s.session_no, s.day, s.start_period, s.room_id].join(','))

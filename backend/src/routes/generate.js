@@ -43,14 +43,17 @@ router.post('/generate', authenticate, async (req, res) => {
 
 /**
  * GET /api/status/:jobId
- * Returns current job state from Firebase RTDB.
+ * Returns current job state from RTDB.
  * Response: { state, progress, message } or 404
  */
 router.get('/status/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
-    const snapshot = await db.ref(`jobs/${jobId}`).once('value');
+    if (!jobId || !/^[0-9a-f-]{36}$/.test(jobId)) {
+      return res.status(400).json({ message: 'Invalid jobId format.' });
+    }
 
+    const snapshot = await db.ref(`jobs/${jobId}`).once('value');
     if (!snapshot.exists()) {
       return res.status(404).json({ message: `Job "${jobId}" not found.` });
     }

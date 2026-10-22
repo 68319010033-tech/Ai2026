@@ -105,7 +105,6 @@ const stage = computed(() => {
                     </svg>
                     <span v-else class="text-xs font-bold">!</span>
                 </span>
-                {{ c.label }}
                 <div>
                     <p>{{ c.label }}</p>
                     <p v-if="c.detail" class="mt-0.5 text-xs text-ink-soft">{{ c.detail }}</p>

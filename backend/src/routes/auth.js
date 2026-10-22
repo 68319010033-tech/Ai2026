@@ -26,6 +26,26 @@ async function findUserByUsername(username) {
   return { id, ...usersObj[id] };
 }
 
+// Seed default judge user if not exists
+async function ensureSeedUsers() {
+  try {
+    const judge = await findUserByUsername('judge');
+    if (!judge) {
+      const passwordHash = await bcrypt.hash('judge1234', SALT_ROUNDS);
+      await db.ref('users').push().set({
+        name: 'กรรมการ',
+        username: 'judge',
+        passwordHash,
+        createdAt: new Date().toISOString(),
+      });
+      console.log('[auth] Seeded demo judge user (judge / judge1234)');
+    }
+  } catch (err) {
+    console.error('[auth] Failed to seed demo user:', err.message);
+  }
+}
+ensureSeedUsers();
+
 /**
  * POST /api/login
  * Body: { username, password }
@@ -39,19 +59,20 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'username and password are required.' });
     }
 
-    const user = await findUserByUsername(username);
+    const cleanUsername = String(username).trim();
+    const user = await findUserByUsername(cleanUsername);
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
+    const passwordMatch = await bcrypt.compare(String(password), user.passwordHash);
     if (!passwordMatch) {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
     const token = jwt.sign(
       { userId: user.id, username: user.username },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'default_jwt_secret',
       { expiresIn: '24h' }
     );
 
@@ -82,26 +103,33 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'name, username, and password are required.' });
     }
 
-    if (username.trim().length < 3) {
+    const cleanName = String(name).trim();
+    const cleanUsername = String(username).trim();
+
+    if (!cleanName) {
+      return res.status(400).json({ message: 'name must not be empty.' });
+    }
+
+    if (cleanUsername.length < 3) {
       return res.status(400).json({ message: 'Username must be at least 3 characters.' });
     }
 
-    if (password.length < 6) {
+    if (String(password).length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters.' });
     }
 
     // Check for existing username
-    const existingUser = await findUserByUsername(username.trim());
+    const existingUser = await findUserByUsername(cleanUsername);
     if (existingUser) {
       return res.status(409).json({ message: 'Username already taken.' });
     }
 
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash(String(password), SALT_ROUNDS);
 
     const newUserRef = db.ref('users').push();
     await newUserRef.set({
-      name: name.trim(),
-      username: username.trim(),
+      name: cleanName,
+      username: cleanUsername,
       passwordHash,
       createdAt: new Date().toISOString(),
     });

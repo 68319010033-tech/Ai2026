@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 import { useScheduleStore } from '../stores/schedule'
 
 const store = useScheduleStore()
@@ -19,8 +20,6 @@ const dragging = ref(false)
 const skipped = ref([])
 const errors = ref([]) // [{ file, row, message }] ตรงกับ contract /api/import
 
-// คอลัมน์ขั้นต่ำที่ต้องมี (ตรวจเฉพาะไฟล์ที่เราแน่ใจจากโจทย์: solution schema, offerings ฯลฯ)
-// ถ้าไม่แน่ใจชื่อคอลัมน์จริงในไฟล์ ให้เทียบกับ header ไฟล์จริงก่อนใช้
 const requiredCols = {
     'fixed_sessions.csv': ['offering_id'],
 }
@@ -39,7 +38,6 @@ function parseCsv(text) {
     })
     return { header, rows: Math.max(0, rows.length - 1), preview: rows.slice(1, 7), badRows }
 }
-
 
 async function readFiles(list) {
     const next = { ...files.value }
@@ -61,14 +59,24 @@ async function readFiles(list) {
         return list
     })
 
-    if (ready.value && !errors.value.length) store.imported = true
+    if (ready.value && !errors.value.length) {
+        store.imported = true
+        try {
+            await axios.post('/api/import', {
+                files: Object.fromEntries(Object.entries(next).map(([k, v]) => [k, v.rows])),
+                useSample: false,
+            })
+        } catch (e) {
+            console.warn('Import notice:', e.message)
+        }
+    }
 }
 
 const onDrop = (e) => { dragging.value = false; readFiles([...e.dataTransfer.files]) }
 const onPick = (e) => readFiles([...e.target.files])
 
-function useSample() {
-    store.useSampleData()
+async function useSample() {
+    await store.useSampleData()
     router.push('/generate')
 }
 </script>
@@ -116,7 +124,6 @@ function useSample() {
         </div>
     </section>
 
-
     <div class="mt-8 grid gap-6 lg:grid-cols-[320px_1fr]">
         <ul class="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-paper">
             <li v-for="[file, label] in required" :key="file">
@@ -149,7 +156,7 @@ function useSample() {
                         <thead>
                             <tr class="border-b border-line text-ink-soft">
                                 <th v-for="h in previewing.header" :key="h"
-                                    class="whitespace-nowrap px-3 py-2 font-medium">{{ h }}</th>
+                                     class="whitespace-nowrap px-3 py-2 font-medium">{{ h }}</th>
                             </tr>
                         </thead>
                         <tbody>

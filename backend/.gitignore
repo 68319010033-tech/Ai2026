@@ -11,3 +11,6 @@ npm-debug.log*
 # Logs
 *.log
 logs/
+
+# Local DB
+data/

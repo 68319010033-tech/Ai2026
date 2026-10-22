@@ -7,43 +7,48 @@ const { db } = require('../config/firebase');
 const router = express.Router();
 
 /**
- * Converts an array of session objects to a CSV string.
+ * Converts an array of session objects to solution.csv format.
+ * Header: offering_id,session_no,day,start_period,room_id
  * @param {Array<Object>} sessions
  * @returns {string} CSV content
  */
 function sessionsToCSV(sessions) {
+  const headers = ['offering_id', 'session_no', 'day', 'start_period', 'room_id'];
   if (!sessions || sessions.length === 0) {
-    return 'subject,teacher,room,day,slot\n';
+    return headers.join(',') + '\n';
   }
 
-  const headers = Object.keys(sessions[0]);
-  const rows = sessions.map((session) =>
-    headers
-      .map((h) => {
-        const val = session[h] !== undefined ? String(session[h]) : '';
-        // Escape values that contain commas, quotes, or newlines
-        if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-          return `"${val.replace(/"/g, '""')}"`;
-        }
-        return val;
-      })
-      .join(',')
-  );
+  const rows = [...sessions]
+    .sort((a, b) => (a.offering_id || '').localeCompare(b.offering_id || '') || (a.session_no || 0) - (b.session_no || 0))
+    .map((session) =>
+      headers
+        .map((h) => {
+          const val = session[h] !== undefined ? String(session[h]) : '';
+          if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+            return `"${val.replace(/"/g, '""')}"`;
+          }
+          return val;
+        })
+        .join(',')
+    );
 
-  return [headers.join(','), ...rows].join('\n');
+  return [headers.join(','), ...rows].join('\n') + '\n';
 }
 
 /**
  * GET /api/schedule/:jobId
  * Requires: Bearer token
- * Returns the generated schedule result from Firebase RTDB.
+ * Returns the generated schedule result from RTDB.
  * Response: { sessions, checks } or 404
  */
 router.get('/schedule/:jobId', authenticate, async (req, res) => {
   try {
     const { jobId } = req.params;
 
-    // First check job state
+    if (!jobId || !/^[0-9a-f-]{36}$/.test(jobId)) {
+      return res.status(400).json({ message: 'Invalid jobId format.' });
+    }
+
     const jobSnapshot = await db.ref(`jobs/${jobId}`).once('value');
     if (!jobSnapshot.exists()) {
       return res.status(404).json({ message: `Job "${jobId}" not found.` });
@@ -83,11 +88,10 @@ router.get('/schedule/:jobId', authenticate, async (req, res) => {
 router.get('/export/solution.csv', authenticate, async (req, res) => {
   try {
     const { jobId } = req.query;
-    if (!jobId) {
-      return res.status(400).json({ message: 'Query parameter "jobId" is required.' });
+    if (!jobId || !/^[0-9a-f-]{36}$/.test(jobId)) {
+      return res.status(400).json({ message: 'Invalid or missing "jobId" parameter.' });
     }
 
-    // Check job completion
     const jobSnapshot = await db.ref(`jobs/${jobId}`).once('value');
     if (!jobSnapshot.exists()) {
       return res.status(404).json({ message: `Job "${jobId}" not found.` });

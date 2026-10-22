@@ -70,10 +70,10 @@ async function submit() {
                         }}</span></p>
                 <p class="text-ink-soft">รหัสผ่าน: <span class="font-semibold text-ink">{{ DEMO_ACCOUNT.password
                         }}</span></p>
-                <button type="button" +
+                <button type="button"
                     class="mt-3 inline-flex items-center gap-2 rounded-lg border border-leaf-300 bg-white px-4 py-2 font-semibold text-leaf-700 shadow-sm transition hover:border-leaf-600 hover:bg-leaf-600 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-leaf-600 active:scale-95"
                     @click="fillDemo">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" +
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 
                         <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
