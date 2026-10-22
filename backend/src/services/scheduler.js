@@ -105,7 +105,8 @@ async function generateSchedule(jobId, db) {
 
       for (const [filename, content] of Object.entries(importedData.files)) {
         if (typeof content === 'string' && content.trim()) {
-          fs.writeFileSync(path.join(tempUploadDir, filename), content, 'utf-8');
+          const outName = /\.csv$/i.test(filename) ? filename : `${filename}.csv`;
+          fs.writeFileSync(path.join(tempUploadDir, outName), content, 'utf-8');
         }
       }
 

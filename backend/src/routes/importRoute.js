@@ -8,6 +8,14 @@ const { db } = require('../config/firebase');
 
 const router = express.Router();
 
+const safeKey = (name) =>
+  String(name).replace(/\.csv$/i, '').replace(/[.#$/\[\]]/g, '_') || '_';
+
+const sanitizeFiles = (files) =>
+  files && typeof files === 'object' && !Array.isArray(files)
+    ? Object.fromEntries(Object.entries(files).map(([k, v]) => [safeKey(k), v]))
+    : {};
+
 // Use in-memory storage — we process the buffer directly
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -42,11 +50,12 @@ router.post(
     try {
       if (req.is('application/json')) {
         const { records = [], useSample = false, files = {} } = req.body || {};
+        const safeFiles = sanitizeFiles(files);
         const importRef = db.ref('importedData');
         await importRef.set({
           records,
-          files,
-          filesSummary: typeof files === 'object' ? Object.keys(files) : [],
+          files: safeFiles,
+          filesSummary: Object.keys(safeFiles),
           useSample: Boolean(useSample),
           importedAt: new Date().toISOString(),
           importedBy: req.user.userId,
