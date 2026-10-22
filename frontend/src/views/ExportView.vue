@@ -5,8 +5,15 @@ import { nameOf } from '../mock/data'
 
 const store = useScheduleStore()
 
+const esc = (v) => {
+  const s = String(v ?? '')
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
 function solutionCsv() {
-  const rows = store.sessions.map((s) => [s.offering_id, s.session_no, s.day, s.start_period, s.room_id].join(','))
+  const rows = [...store.sessions]
+    .sort((a, b) => a.offering_id.localeCompare(b.offering_id) || a.session_no - b.session_no)
+    .map((s) => [s.offering_id, s.session_no, s.day, s.start_period, s.room_id].join(','))
   downloadText('solution.csv', ['offering_id,session_no,day,start_period,room_id', ...rows].join('\n') + '\n')
 }
 
@@ -14,7 +21,7 @@ function scheduleCsv() {
   const head = 'วิชา,กลุ่ม,ครู,ห้อง,วัน,คาบเริ่ม,จำนวนคาบ'
   const rows = store.sessions.map((s) =>
     [nameOf('course', s.course_id), nameOf('group', s.group_id), nameOf('teacher', s.teacher_id),
-      nameOf('room', s.room_id), s.day, s.start_period, s.length].join(','))
+       nameOf('room', s.room_id), s.day, s.start_period, s.length].map(esc).join(','))
   downloadText('schedule.csv', [head, ...rows].join('\n') + '\n', { bom: true }) // bom ให้ Excel อ่านภาษาไทยถูก
 }
 
