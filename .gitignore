@@ -1,0 +1,7 @@
+
+# Environment variables and Firebase secrets
+.env
+serviceAccountKey.json
+
+# Dependencies
+backend/node_modules/
