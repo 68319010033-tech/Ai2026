@@ -13,9 +13,9 @@ RUN pip3 install --no-cache-dir --break-system-packages ortools
 
 WORKDIR /app
 # คัดลอกไฟล์จาก Root ของโปรเจกต์โดยตรง
-COPY package*.json ./
+COPY backend/package*.json ./
 RUN npm ci --omit=dev
-COPY . ./
+COPY backend/ ./
 COPY --from=web /web/dist ./public
 
 ENV NODE_ENV=production PYTHON_PATH=python3
