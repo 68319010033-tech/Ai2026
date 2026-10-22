@@ -56,11 +56,11 @@ async function submit() {
             <FormField id="password" v-model="form.password" label="รหัสผ่าน" type="password"
                 autocomplete="current-password" :error="errors.password" />
 
-            <p v-if="formError" role="alert" class="rounded-xl 1    bg-warn-bg px-4 py-2 text-sm text-warn">{{ formError
-                }}</p>
+           <p v-if="formError" role="alert" class="rounded-xl bg-warn-bg px-4 py-2 text-sm text-warn">{{ formError }}</p>
+                
 
             <button type="submit" :disabled="loading"
-                class="w-full rounded-xl bg-leaf-600 py-3 font-semibold text-white transition-colors hover:bg-leaf-700 disabled:cursor-not-allowed disabled:bg-leaf-300">
+            class="w-full rounded-xl bg-leaf-600 py-3 font-semibold text-white shadow-md shadow-leaf-600/25 transition hover:bg-leaf-700 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-leaf-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-leaf-300 disabled:shadow-none">
                 {{ loading ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ' }}
             </button>
 
@@ -70,15 +70,23 @@ async function submit() {
                         }}</span></p>
                 <p class="text-ink-soft">รหัสผ่าน: <span class="font-semibold text-ink">{{ DEMO_ACCOUNT.password
                         }}</span></p>
-                <button type="button"
-                    class="mt-2 font-semibold text-leaf-700 underline underline-offset-4 hover:text-leaf-900"
-                    @click="fillDemo">กรอกให้อัตโนมัติ</button>
+                <button type="button" +
+                    class="mt-3 inline-flex items-center gap-2 rounded-lg border border-leaf-300 bg-white px-4 py-2 font-semibold text-leaf-700 shadow-sm transition hover:border-leaf-600 hover:bg-leaf-600 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-leaf-600 active:scale-95"
+                    @click="fillDemo">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" +
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+
+                        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+
+                    </svg>
+                    กรอกให้อัตโนมัติ
+                </button>
             </div>
 
         </form>
 
         <template #footer>
-            ยังไม่มีบัญชี?
+             ยังไม่มีบัญชี?
             <RouterLink to="/register" class="font-semibold text-leaf-700 underline underline-offset-4">สมัครสมาชิก
             </RouterLink>
         </template>
