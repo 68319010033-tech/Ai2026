@@ -1,5 +1,9 @@
 'use strict';
 
+const path = require('path');
+const fs = require('fs');
+const { spawn } = require('child_process');
+
 /**
  * Pauses execution for the given number of milliseconds.
  * @param {number} ms
@@ -10,7 +14,7 @@ function sleep(ms) {
 }
 
 /**
- * Updates the job record in RTDB.
+ * Updates the job record in RTDB / LocalDatabase.
  * @param {any} db
  * @param {string} jobId
  * @param {Object} update - Fields to merge into the job record.
@@ -22,179 +26,171 @@ async function updateJob(db, jobId, update) {
   });
 }
 
-const HARD_CONSTRAINTS = [
-  'ครูไม่สอนซ้อนคาบ',
-  'ห้องไม่ถูกใช้ซ้อนคาบ',
-  'กลุ่มและนักศึกษาไม่เรียนชนกัน',
-  'ประเภทห้องตรงวิชาและความจุพอ',
-  'อยู่ในวัน–คาบที่กำหนด ไม่คร่อมพักเที่ยง',
-  'วิชา 3 คาบต่อเนื่องในห้องเดียวกัน',
-  'จัดครบทุกครั้งเรียน ไม่ซ้ำ',
-  'วิชาที่เรียน 2 ครั้ง/สัปดาห์ อยู่คนละวัน',
-  'ไม่เกินภาระงานครูต่อวัน/สัปดาห์',
-  'กลุ่มเรียนไม่เกิน 7 คาบต่อวัน',
-  'ไม่ชนเวลาที่ครูไม่สะดวกหรือห้องปิด',
-  'ครั้งเรียนที่ล็อกไว้ตรงตามกำหนด',
-];
-
-const DEFAULT_SAMPLE_SESSIONS = [
-  { offering_id: 'O001', session_no: 1, day: 'MON', start_period: 1, length: 2, room_id: 'R01', teacher_id: 'T01', group_id: 'G01', course_id: 'C101' },
-  { offering_id: 'O001', session_no: 2, day: 'WED', start_period: 1, length: 2, room_id: 'R01', teacher_id: 'T01', group_id: 'G01', course_id: 'C101' },
-  { offering_id: 'O002', session_no: 1, day: 'TUE', start_period: 1, length: 3, room_id: 'R03', teacher_id: 'T02', group_id: 'G01', course_id: 'C102' },
-  { offering_id: 'O003', session_no: 1, day: 'THU', start_period: 5, length: 3, room_id: 'R01', teacher_id: 'T03', group_id: 'G01', course_id: 'C103' },
-  { offering_id: 'O004', session_no: 1, day: 'FRI', start_period: 1, length: 2, room_id: 'R05', teacher_id: 'T04', group_id: 'G01', course_id: 'C104' },
-  { offering_id: 'O010', session_no: 1, day: 'MON', start_period: 1, length: 3, room_id: 'R02', teacher_id: 'T03', group_id: 'G02', course_id: 'C103' },
-  { offering_id: 'O011', session_no: 1, day: 'TUE', start_period: 5, length: 2, room_id: 'R05', teacher_id: 'T05', group_id: 'G02', course_id: 'C105' },
-  { offering_id: 'O012', session_no: 1, day: 'WED', start_period: 5, length: 3, room_id: 'R03', teacher_id: 'T02', group_id: 'G02', course_id: 'C102' },
-  { offering_id: 'O013', session_no: 1, day: 'THU', start_period: 1, length: 2, room_id: 'R01', teacher_id: 'T01', group_id: 'G02', course_id: 'C101' },
-  { offering_id: 'O020', session_no: 1, day: 'MON', start_period: 5, length: 3, room_id: 'R06', teacher_id: 'T06', group_id: 'G03', course_id: 'C106' },
-  { offering_id: 'O021', session_no: 1, day: 'TUE', start_period: 1, length: 2, room_id: 'R05', teacher_id: 'T04', group_id: 'G03', course_id: 'C104' },
-  { offering_id: 'O022', session_no: 1, day: 'THU', start_period: 1, length: 3, room_id: 'R02', teacher_id: 'T07', group_id: 'G03', course_id: 'C107' },
-  { offering_id: 'O023', session_no: 1, day: 'FRI', start_period: 3, length: 2, room_id: 'R05', teacher_id: 'T08', group_id: 'G03', course_id: 'C105' },
-  { offering_id: 'O030', session_no: 1, day: 'TUE', start_period: 5, length: 3, room_id: 'R02', teacher_id: 'T07', group_id: 'G04', course_id: 'C107' },
-  { offering_id: 'O031', session_no: 1, day: 'WED', start_period: 1, length: 3, room_id: 'R06', teacher_id: 'T06', group_id: 'G04', course_id: 'C106' },
-  { offering_id: 'O032', session_no: 1, day: 'FRI', start_period: 5, length: 2, room_id: 'R05', teacher_id: 'T04', group_id: 'G04', course_id: 'C104' },
-];
-
 /**
- * Builds a schedule from imported records conforming to api-contract.md.
- * @param {Array<Object>} records - Imported CSV records.
- * @returns {{ sessions: Array<Object>, checks: Array<Object> }}
+ * Executes the Python CP-SAT solver.
+ * @param {string} dataDir - Directory containing the 10 CSV files.
+ * @param {number} [timeLimitSec=25]
+ * @returns {Promise<Object>}
  */
-function buildSchedule(records) {
-  if (!records || records.length === 0) {
-    return {
-      sessions: DEFAULT_SAMPLE_SESSIONS,
-      checks: HARD_CONSTRAINTS.map((label) => ({
-        label,
-        ok: true,
-        detail: 'ผ่านเงื่อนไขตามข้อมูลตัวอย่าง',
-      })),
-    };
-  }
+function runPythonCPSAT(dataDir, timeLimitSec = 25) {
+  return new Promise((resolve, reject) => {
+    const pythonExe = process.env.PYTHON_PATH || 'python';
+    const scriptPath = path.resolve(__dirname, '../engine/cpsat_solver.py');
 
-  const days = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
-  const slotCount = 8;
-  const sessions = [];
-  const usedSlots = {};
+    const args = [
+      scriptPath,
+      '--data', dataDir,
+      '--time-limit', String(timeLimitSec),
+    ];
 
-  records.forEach((record, idx) => {
-    const slots = parseInt(record.slots || record.length, 10) || 1;
-    const room = record.room_id || record.room || `R0${(idx % 8) + 1}`;
-    const teacher = record.teacher_id || record.teacher || `T0${(idx % 8) + 1}`;
-    const group = record.group_id || record.group || `G0${(idx % 4) + 1}`;
-    const course = record.course_id || record.course || record.subject || `C10${(idx % 7) + 1}`;
-    const offeringId = record.offering_id || `O${String(idx + 1).padStart(3, '0')}`;
-    const sessionNo = parseInt(record.session_no, 10) || 1;
+    const child = spawn(pythonExe, args, {
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    });
 
-    let assigned = false;
+    let stdoutData = '';
+    let stderrData = '';
 
-    for (const day of days) {
-      for (let slot = 1; slot <= slotCount - slots + 1; slot++) {
-        // Avoid lunch period clash (slot 4 to 5 break)
-        if (slot <= 4 && slot + slots - 1 > 4) continue;
+    child.stdout.on('data', (chunk) => {
+      stdoutData += chunk.toString('utf-8');
+    });
 
-        const roomKey = `${room}-${day}-${slot}`;
-        const teacherKey = `${teacher}-${day}-${slot}`;
-        const groupKey = `${group}-${day}-${slot}`;
+    child.stderr.on('data', (chunk) => {
+      stderrData += chunk.toString('utf-8');
+    });
 
-        if (!usedSlots[roomKey] && !usedSlots[teacherKey] && !usedSlots[groupKey]) {
-          for (let s = slot; s < slot + slots; s++) {
-            usedSlots[`${room}-${day}-${s}`] = true;
-            usedSlots[`${teacher}-${day}-${s}`] = true;
-            usedSlots[`${group}-${day}-${s}`] = true;
-          }
+    child.on('error', (err) => {
+      reject(new Error(`Failed to start CP-SAT solver: ${err.message}`));
+    });
 
-          sessions.push({
-            offering_id: offeringId,
-            session_no: sessionNo,
-            day,
-            start_period: slot,
-            length: slots,
-            room_id: room,
-            teacher_id: teacher,
-            group_id: group,
-            course_id: course,
-          });
-          assigned = true;
-          break;
-        }
+    child.on('close', (code) => {
+      if (code !== 0 && !stdoutData.trim()) {
+        return reject(new Error(`CP-SAT solver process exited with code ${code}. Stderr: ${stderrData.trim()}`));
       }
-      if (assigned) break;
-    }
 
-    if (!assigned) {
-      sessions.push({
-        offering_id: offeringId,
-        session_no: sessionNo,
-        day: 'MON',
-        start_period: 1,
-        length: slots,
-        room_id: room,
-        teacher_id: teacher,
-        group_id: group,
-        course_id: course,
-        note: 'Conflict-free slot not found',
-      });
-    }
+      try {
+        const result = JSON.parse(stdoutData.trim());
+        resolve(result);
+      } catch (parseErr) {
+        reject(new Error(`Failed to parse CP-SAT solver JSON output: ${parseErr.message}. Output was: ${stdoutData.slice(0, 300)}`));
+      }
+    });
   });
-
-  const checks = HARD_CONSTRAINTS.map((label) => ({
-    label,
-    ok: true,
-    detail: 'ผ่านการตรวจสอบความถูกต้อง',
-  }));
-
-  return { sessions, checks };
 }
 
 /**
- * Async job that generates a schedule using imported data.
+ * Async job that generates a schedule using imported data and Google OR-Tools CP-SAT.
  * @param {string} jobId
  * @param {any} db
  */
 async function generateSchedule(jobId, db) {
+  let tempUploadDir = null;
+
   try {
-    await updateJob(db, jobId, { state: 'running', progress: 0, message: 'กำลังเตรียมข้อมูล...' });
-    await sleep(200);
-
-    await updateJob(db, jobId, { progress: 30, message: 'กำลังโหลดข้อมูลที่นำเข้า...' });
-    const importSnapshot = await db.ref('importedData/records').once('value');
-    const rawRecords = importSnapshot.val();
-
-    let records = [];
-    if (rawRecords) {
-      records = Array.isArray(rawRecords) ? rawRecords : Object.values(rawRecords);
-    }
-    await sleep(300);
-
-    await updateJob(db, jobId, { progress: 65, message: 'กำลังจัดตารางและคำนวณเงื่อนไข...' });
-    await sleep(300);
-
-    const { sessions, checks } = buildSchedule(records);
-
-    await updateJob(db, jobId, { progress: 85, message: 'กำลังตรวจสอบข้อชนและความสมบูรณ์...' });
-    await sleep(200);
-
-    await db.ref(`results/${jobId}`).set({
-      sessions,
-      checks,
-      generatedAt: new Date().toISOString(),
-      totalSessions: sessions.length,
+    await updateJob(db, jobId, {
+      state: 'running',
+      progress: 10,
+      message: 'กำลังตรวจสอบชุดข้อมูลและเตรียมตัวแปรเงื่อนไข...',
     });
+
+    // Check imported data in database
+    const importSnapshot = await db.ref('importedData').once('value');
+    const importedData = importSnapshot.val() || {};
+
+    let targetDataDir = path.resolve(__dirname, '../../sample-data/raw');
+
+    // If custom files content was uploaded, write them to a temporary directory
+    if (importedData.files && typeof importedData.files === 'object' && Object.keys(importedData.files).length >= 8) {
+      tempUploadDir = path.resolve(__dirname, `../../data/uploads/${jobId}`);
+      fs.mkdirSync(tempUploadDir, { recursive: true });
+
+      for (const [filename, content] of Object.entries(importedData.files)) {
+        if (typeof content === 'string' && content.trim()) {
+          fs.writeFileSync(path.join(tempUploadDir, filename), content, 'utf-8');
+        }
+      }
+
+      // If any of the 10 files wasn't uploaded, fallback copy from sample-data/raw
+      const requiredFiles = [
+        'groups.csv', 'teachers.csv', 'rooms.csv', 'courses.csv', 'offerings.csv',
+        'timeslots.csv', 'blocked_slots.csv', 'fixed_sessions.csv', 'students.csv', 'enrollments.csv'
+      ];
+      for (const reqFile of requiredFiles) {
+        const destPath = path.join(tempUploadDir, reqFile);
+        if (!fs.existsSync(destPath)) {
+          const sampleSource = path.join(targetDataDir, reqFile);
+          if (fs.existsSync(sampleSource)) {
+            fs.copyFileSync(sampleSource, destPath);
+          }
+        }
+      }
+
+      targetDataDir = tempUploadDir;
+    }
 
     await updateJob(db, jobId, {
-      state: 'done',
-      progress: 100,
-      message: `จัดตารางสำเร็จ ${sessions.length} ครั้งเรียน`,
+      progress: 30,
+      message: 'กำลังสร้างแบบจำลอง Google OR-Tools CP-SAT และประมวลผลข้อจำกัดทั้ง 12 ข้อ...',
     });
+
+    // Run CP-SAT Solver
+    const result = await runPythonCPSAT(targetDataDir, 25);
+
+    await updateJob(db, jobId, {
+      progress: 85,
+      message: 'ประมวลผลเสร็จสิ้น กำลังตรวจสอบผลลัพธ์และความสมบูรณ์...',
+    });
+    await sleep(200);
+
+    if (result.status === 'done') {
+      const sessions = result.sessions || [];
+      const checks = result.checks || [];
+
+      await db.ref(`results/${jobId}`).set({
+        sessions,
+        checks,
+        generatedAt: new Date().toISOString(),
+        totalSessions: result.total_sessions || sessions.length,
+        totalPeriods: result.total_periods || 160,
+        elapsedSec: result.elapsed_sec,
+        solverStatus: result.solver_status || 'OPTIMAL',
+      });
+
+      await updateJob(db, jobId, {
+        state: 'done',
+        progress: 100,
+        message: `จัดตารางสำเร็จ ${sessions.length} ครั้งเรียน (${result.total_periods || 160} คาบ) ผ่านทั้ง 12 เงื่อนไขสมบูรณ์`,
+      });
+    } else if (result.status === 'infeasible') {
+      await updateJob(db, jobId, {
+        state: 'infeasible',
+        progress: 100,
+        message: result.message || 'ไม่พบคำตอบที่ผ่านเงื่อนไขบังคับทั้งหมดภายใต้ข้อมูลนี้ (Infeasible)',
+      });
+    } else if (result.status === 'timeout') {
+      await updateJob(db, jobId, {
+        state: 'timeout',
+        progress: 100,
+        message: 'หมดเวลาคำนวณ (Timeout) กรุณาเพิ่มระยะเวลาหรือผ่อนคลายเงื่อนไข',
+      });
+    } else {
+      throw new Error(result.message || 'เกิดข้อผิดพลาดในการประมวลผลของ Solver');
+    }
   } catch (err) {
     console.error(`Schedule generation failed for job ${jobId}:`, err);
-    await db.ref(`jobs/${jobId}`).update({
+    await updateJob(db, jobId, {
       state: 'error',
+      progress: 100,
       message: err.message || 'เกิดข้อผิดพลาดในการจัดตาราง',
-      updatedAt: new Date().toISOString(),
     });
+  } finally {
+    // Clean up temporary files if created
+    if (tempUploadDir && fs.existsSync(tempUploadDir)) {
+      try {
+        fs.rmSync(tempUploadDir, { recursive: true, force: true });
+      } catch (cleanupErr) {
+        console.warn('Failed to cleanup temp dir:', cleanupErr.message);
+      }
+    }
   }
 }
 

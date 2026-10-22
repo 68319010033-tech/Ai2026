@@ -45,7 +45,8 @@ router.post(
         const importRef = db.ref('importedData');
         await importRef.set({
           records,
-          filesSummary: files,
+          files,
+          filesSummary: typeof files === 'object' ? Object.keys(files) : [],
           useSample: Boolean(useSample),
           importedAt: new Date().toISOString(),
           importedBy: req.user.userId,

@@ -44,7 +44,8 @@ async function readFiles(list) {
     skipped.value = []
     for (const f of list) {
         if (!f.name.toLowerCase().endsWith('.csv')) { skipped.value.push(f.name); continue }
-        next[f.name] = parseCsv(await f.text())
+        const rawText = await f.text()
+        next[f.name] = { ...parseCsv(rawText), raw: rawText }
         active.value = f.name
     }
     files.value = next
@@ -63,7 +64,7 @@ async function readFiles(list) {
         store.imported = true
         try {
             await axios.post('/api/import', {
-                files: Object.fromEntries(Object.entries(next).map(([k, v]) => [k, v.rows])),
+                files: Object.fromEntries(Object.entries(next).map(([k, v]) => [k, v.raw || v.rows])),
                 useSample: false,
             })
         } catch (e) {
