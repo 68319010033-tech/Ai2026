@@ -1,7 +1,0 @@
-
-# Environment variables and Firebase secrets
-.env
-serviceAccountKey.json
-
-# Dependencies
-node_modules/
