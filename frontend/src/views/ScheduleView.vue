@@ -1,6 +1,7 @@
 <script setup>
 import { useScheduleStore } from '../stores/schedule'
-import ScheduleTable from '../components/ScheduleGrid.vue'
+import TimetableCard from '../components/TimetableCard.vue'
+import { nameOf } from '../mock/data'
 
 const store = useScheduleStore()
 const tabs = [
@@ -8,6 +9,18 @@ const tabs = [
   { key: 'teacher', label: 'รายครู' },
   { key: 'room', label: 'รายห้อง' },
 ]
+
+const headings = { group: 'ตารางเรียน', teacher: 'ตารางสอน', room: 'ตารางการใช้ห้อง' }
+
+// ข้อความในแต่ละช่อง ขึ้นกับมุมมอง
+function describe(s) {
+  const lines = {
+   group: [nameOf('teacher', s.teacher_id), nameOf('room', s.room_id)],
+    teacher: [nameOf('group', s.group_id), nameOf('room', s.room_id)],
+    room: [nameOf('group', s.group_id), nameOf('teacher', s.teacher_id)],
+  }[store.view]
+  return { title: nameOf('course', s.course_id), sub: lines.join(' · ') }
+}
 </script>
 
 <template>
@@ -52,6 +65,13 @@ const tabs = [
           </p>
         </div>
         <ScheduleTable :sessions="store.selectedSessions" :mode="store.view" />
+         <TimetableCard
+          :sessions="store.selectedSessions"
+         :heading="headings[store.view]"
+          :left-label="store.selectedEntity?.name"
+          :right-label="`${store.summary.count} ครั้งเรียน · ${store.summary.periods} คาบ`"
+          :describe="describe"
+        />
         <p v-if="!store.selectedSessions.length" class="mt-3 text-sm text-ink-soft">รายการนี้ยังไม่มีคาบเรียนในตัวอย่างข้อมูล</p>
       </section>
     </div>
