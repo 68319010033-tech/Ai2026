@@ -136,7 +136,7 @@ class DataLoader:
             self.courses[cid] = {
                 'course_id': cid,
                 'course_name': r.get('course_name', cid),
-                'required_room_type': normalize_id(r.get('required_room_type', 'GENERAL')),
+               'required_room_type': normalize_id(r.get('room_type') or r.get('required_room_type') or 'GENERAL'),
                 'session_length': parse_int_safe(r.get('session_length', 2)),
                 'sessions_per_week': parse_int_safe(r.get('sessions_per_week', 1)),
             }
